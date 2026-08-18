@@ -457,7 +457,7 @@ enum LinkPathType {
 };
 
 struct LinkPath {
-    ImVec2 m_Points[16];
+    ImVec2 m_Points[32];
     int m_NumPoint;
     LinkPathType m_Type;
 };
@@ -475,13 +475,31 @@ struct Link final: Object
     ImVec2 m_Start;
     ImVec2 m_End;
 
+    // Custom offsets for dragged orthogonal segments
+    float  m_CustomSplitX{0.0f};
+    float  m_CustomSplitY{0.0f};
+    bool   m_HasCustomSplitX{false};
+    bool   m_HasCustomSplitY{false};
+
+    // Segment drag tracking
+    int    m_DraggedSegmentIndex{-1};
+    float  m_DragStartSplitX{0.0f};
+    float  m_DragStartSplitY{0.0f};
+
+    // Branch state
+    bool   m_IsBranch{false};
+    ImVec2 m_BranchOrigin{0.0f, 0.0f};
+
     Link(EditorContext* editor, LinkId id)
         : Object(editor)
         , m_ID(id)
         , m_StartPin(nullptr)
         , m_EndPin(nullptr)
         , m_Color(IM_COL32_WHITE)
+        , m_HighlightColor(IM_COL32_WHITE)
         , m_Thickness(1.0f)
+        , m_Start(0.0f, 0.0f)
+        , m_End(0.0f, 0.0f)
     {
     }
 
@@ -496,6 +514,15 @@ struct Link final: Object
 
     LinkPathType GetPathType(ImRect& fromRect, ImRect& toRect) const;
     LinkPath GetCurve() const;
+    LinkPath GetOrthogonalPath() const;
+
+    int FindSegmentAt(const ImVec2& point, float threshold, bool* outIsHorizontal = nullptr, float* outDist = nullptr) const;
+    ImVec2 GetClosestPointOnPath(const ImVec2& point) const;
+
+    virtual bool AcceptDrag() override;
+    virtual void UpdateDrag(const ImVec2& offset) override;
+    virtual bool EndDrag() override;
+    virtual ImVec2 DragStartLocation() override;
 
     virtual bool TestHit(const ImVec2& point, float extraThickness = 0.0f) const override final;
     virtual bool TestHit(const ImRect& rect, bool allowIntersect = true) const override final;
@@ -951,6 +978,7 @@ struct DragAction final: EditorAction
     bool            m_Clear;
     Object*         m_DraggedObject;
     vector<Object*> m_Objects;
+    ImGuiMouseCursor m_Cursor{ImGuiMouseCursor_ResizeAll};
 
     DragAction(EditorContext* editor);
 
@@ -959,7 +987,7 @@ struct DragAction final: EditorAction
     virtual AcceptResult Accept(const Control& control) override final;
     virtual bool Process(const Control& control) override final;
 
-    virtual ImGuiMouseCursor GetCursor() override final { return ImGuiMouseCursor_ResizeAll; }
+    virtual ImGuiMouseCursor GetCursor() override final { return m_Cursor; }
 
     virtual bool IsDragging() override final { return m_IsActive; }
 
@@ -1098,6 +1126,8 @@ struct CreateItemAction final : EditorAction
 
     bool      m_IsActive;
     Pin*      m_DraggedPin;
+    bool      m_IsBranching{false};
+    ImVec2    m_BranchOrigin{0.0f, 0.0f};
 
     int       m_LastChannel = -1;
 
@@ -1122,6 +1152,9 @@ struct CreateItemAction final : EditorAction
     bool Begin();
     void End();
 
+    void DragStart(Pin* startPin);
+    void DragStartBranch(Pin* startPin, const ImVec2& branchOrigin);
+    void DragEnd();
     Result RejectItem();
     Result AcceptItem();
 
@@ -1131,8 +1164,6 @@ struct CreateItemAction final : EditorAction
 private:
     bool m_IsInGlobalSpace;
 
-    void DragStart(Pin* startPin);
-    void DragEnd();
     void DropPin(Pin* endPin);
     void DropNode();
     void DropNothing();
@@ -1467,6 +1498,9 @@ struct EditorContext
     NodeId GetDoubleClickedNode()      const { return m_DoubleClickedNode;       }
     PinId  GetDoubleClickedPin()       const { return m_DoubleClickedPin;        }
     LinkId GetDoubleClickedLink()      const { return m_DoubleClickedLink;       }
+
+    const vector<ObjectWrapper<Link>>& GetLinks() const { return m_Links; }
+    vector<ObjectWrapper<Link>>& GetLinks()             { return m_Links; }
     bool   IsBackgroundClicked()                           const { return m_BackgroundClickButtonIndex >= 0; }
     bool   IsBackgroundDoubleClicked()                     const { return m_BackgroundDoubleClickButtonIndex >= 0; }
     ImGuiMouseButton GetBackgroundClickButtonIndex()       const { return m_BackgroundClickButtonIndex; }

@@ -714,21 +714,27 @@ void ed::Node::Draw(ImDrawList* drawList, DrawFlags flags)
     }
     else if (flags & Selected)
     {
-        const auto  borderColor = Editor->GetColor(StyleColor_SelNodeBorder);
-        const auto& editorStyle = Editor->GetStyle();
+        if (m_BorderWidth > 0.0f)
+        {
+            const auto  borderColor = Editor->GetColor(StyleColor_SelNodeBorder);
+            const auto& editorStyle = Editor->GetStyle();
 
-        drawList->ChannelsSetCurrent(m_Channel + c_NodeBaseChannel);
+            drawList->ChannelsSetCurrent(m_Channel + c_NodeBaseChannel);
 
-        DrawBorder(drawList, borderColor, editorStyle.SelectedNodeBorderWidth, editorStyle.SelectedNodeBorderOffset);
+            DrawBorder(drawList, borderColor, editorStyle.SelectedNodeBorderWidth, editorStyle.SelectedNodeBorderOffset);
+        }
     }
     else if (!IsGroup(this) && (flags & Hovered))
     {
-        const auto  borderColor = Editor->GetColor(StyleColor_HovNodeBorder);
-        const auto& editorStyle = Editor->GetStyle();
+        if (m_BorderWidth > 0.0f)
+        {
+            const auto  borderColor = Editor->GetColor(StyleColor_HovNodeBorder);
+            const auto& editorStyle = Editor->GetStyle();
 
-        drawList->ChannelsSetCurrent(m_Channel + c_NodeBaseChannel);
+            drawList->ChannelsSetCurrent(m_Channel + c_NodeBaseChannel);
 
-        DrawBorder(drawList, borderColor, editorStyle.HoveredNodeBorderWidth, editorStyle.HoverNodeBorderOffset);
+            DrawBorder(drawList, borderColor, editorStyle.HoveredNodeBorderWidth, editorStyle.HoverNodeBorderOffset);
+        }
     }
 }
 
@@ -760,77 +766,80 @@ void ed::Node::GetGroupedNodes(std::vector<Node*>& result, bool append)
 
 ImRect ed::Node::GetRegionBounds(NodeRegion region) const
 {
-    if (m_Type == NodeType::Node)
+    const float activeAreaMinimumSize = ImMax(ImMax(
+        Editor->GetView().InvScale * c_GroupSelectThickness,
+        m_GroupBorderWidth), c_GroupSelectThickness);
+    const float minimumSize = activeAreaMinimumSize * 5;
+
+    auto bounds = m_Bounds;
+    if (bounds.GetWidth() < minimumSize)
+        bounds.Expand(ImVec2(minimumSize - bounds.GetWidth(), 0.0f));
+    if (bounds.GetHeight() < minimumSize)
+        bounds.Expand(ImVec2(0.0f, minimumSize - bounds.GetHeight()));
+
+    if (region == NodeRegion::Top)
     {
-        if (region == NodeRegion::Header)
-            return m_Bounds;
+        bounds.Max.y = bounds.Min.y + activeAreaMinimumSize;
+        bounds.Min.x += activeAreaMinimumSize;
+        bounds.Max.x -= activeAreaMinimumSize;
+        return bounds;
     }
-    else if (m_Type == NodeType::Group)
+    else if (region == NodeRegion::Bottom)
     {
-        const float activeAreaMinimumSize = ImMax(ImMax(
-            Editor->GetView().InvScale * c_GroupSelectThickness,
-            m_GroupBorderWidth), c_GroupSelectThickness);
-        const float minimumSize = activeAreaMinimumSize * 5;
-
-        auto bounds = m_Bounds;
-        if (bounds.GetWidth() < minimumSize)
-            bounds.Expand(ImVec2(minimumSize - bounds.GetWidth(), 0.0f));
-        if (bounds.GetHeight() < minimumSize)
-            bounds.Expand(ImVec2(0.0f, minimumSize - bounds.GetHeight()));
-
-        if (region == NodeRegion::Top)
+        bounds.Min.y = bounds.Max.y - activeAreaMinimumSize;
+        bounds.Min.x += activeAreaMinimumSize;
+        bounds.Max.x -= activeAreaMinimumSize;
+        return bounds;
+    }
+    else if (region == NodeRegion::Left)
+    {
+        bounds.Max.x = bounds.Min.x + activeAreaMinimumSize;
+        bounds.Min.y += activeAreaMinimumSize;
+        bounds.Max.y -= activeAreaMinimumSize;
+        return bounds;
+    }
+    else if (region == NodeRegion::Right)
+    {
+        bounds.Min.x = bounds.Max.x - activeAreaMinimumSize;
+        bounds.Min.y += activeAreaMinimumSize;
+        bounds.Max.y -= activeAreaMinimumSize;
+        return bounds;
+    }
+    else if (region == NodeRegion::TopLeft)
+    {
+        bounds.Max.x = bounds.Min.x + activeAreaMinimumSize * 2;
+        bounds.Max.y = bounds.Min.y + activeAreaMinimumSize * 2;
+        return bounds;
+    }
+    else if (region == NodeRegion::TopRight)
+    {
+        bounds.Min.x = bounds.Max.x - activeAreaMinimumSize * 2;
+        bounds.Max.y = bounds.Min.y + activeAreaMinimumSize * 2;
+        return bounds;
+    }
+    else if (region == NodeRegion::BottomRight)
+    {
+        bounds.Min.x = bounds.Max.x - activeAreaMinimumSize * 2;
+        bounds.Min.y = bounds.Max.y - activeAreaMinimumSize * 2;
+        return bounds;
+    }
+    else if (region == NodeRegion::BottomLeft)
+    {
+        bounds.Max.x = bounds.Min.x + activeAreaMinimumSize * 2;
+        bounds.Min.y = bounds.Max.y - activeAreaMinimumSize * 2;
+        return bounds;
+    }
+    else if (region == NodeRegion::Header)
+    {
+        if (m_Type == NodeType::Node)
         {
-            bounds.Max.y = bounds.Min.y + activeAreaMinimumSize;
             bounds.Min.x += activeAreaMinimumSize;
             bounds.Max.x -= activeAreaMinimumSize;
-            return bounds;
-        }
-        else if (region == NodeRegion::Bottom)
-        {
-            bounds.Min.y = bounds.Max.y - activeAreaMinimumSize;
-            bounds.Min.x += activeAreaMinimumSize;
-            bounds.Max.x -= activeAreaMinimumSize;
-            return bounds;
-        }
-        else if (region == NodeRegion::Left)
-        {
-            bounds.Max.x = bounds.Min.x + activeAreaMinimumSize;
             bounds.Min.y += activeAreaMinimumSize;
             bounds.Max.y -= activeAreaMinimumSize;
             return bounds;
         }
-        else if (region == NodeRegion::Right)
-        {
-            bounds.Min.x = bounds.Max.x - activeAreaMinimumSize;
-            bounds.Min.y += activeAreaMinimumSize;
-            bounds.Max.y -= activeAreaMinimumSize;
-            return bounds;
-        }
-        else if (region == NodeRegion::TopLeft)
-        {
-            bounds.Max.x = bounds.Min.x + activeAreaMinimumSize * 2;
-            bounds.Max.y = bounds.Min.y + activeAreaMinimumSize * 2;
-            return bounds;
-        }
-        else if (region == NodeRegion::TopRight)
-        {
-            bounds.Min.x = bounds.Max.x - activeAreaMinimumSize * 2;
-            bounds.Max.y = bounds.Min.y + activeAreaMinimumSize * 2;
-            return bounds;
-        }
-        else if (region == NodeRegion::BottomRight)
-        {
-            bounds.Min.x = bounds.Max.x - activeAreaMinimumSize * 2;
-            bounds.Min.y = bounds.Max.y - activeAreaMinimumSize * 2;
-            return bounds;
-        }
-        else if (region == NodeRegion::BottomLeft)
-        {
-            bounds.Max.x = bounds.Min.x + activeAreaMinimumSize * 2;
-            bounds.Min.y = bounds.Max.y - activeAreaMinimumSize * 2;
-            return bounds;
-        }
-        else if (region == NodeRegion::Header)
+        else
         {
             bounds.Min.x += activeAreaMinimumSize;
             bounds.Max.x -= activeAreaMinimumSize;
@@ -838,14 +847,14 @@ ImRect ed::Node::GetRegionBounds(NodeRegion region) const
             bounds.Max.y  = ImMax(bounds.Min.y + activeAreaMinimumSize, m_GroupBounds.Min.y);
             return bounds;
         }
-        else if (region == NodeRegion::Center)
-        {
-            bounds.Max.x -= activeAreaMinimumSize;
-            bounds.Min.y  = ImMax(bounds.Min.y + activeAreaMinimumSize, m_GroupBounds.Min.y);
-            bounds.Min.x += activeAreaMinimumSize;
-            bounds.Max.y -= activeAreaMinimumSize;
-            return bounds;
-        }
+    }
+    else if (region == NodeRegion::Center)
+    {
+        bounds.Max.x -= activeAreaMinimumSize;
+        bounds.Min.y  = ImMax(bounds.Min.y + activeAreaMinimumSize, m_GroupBounds.Min.y);
+        bounds.Min.x += activeAreaMinimumSize;
+        bounds.Max.y -= activeAreaMinimumSize;
+        return bounds;
     }
 
     return ImRect();
@@ -853,36 +862,26 @@ ImRect ed::Node::GetRegionBounds(NodeRegion region) const
 
 ed::NodeRegion ed::Node::GetRegion(const ImVec2& point) const
 {
-    if (m_Type == NodeType::Node)
+    static const NodeRegion c_Regions[] =
     {
-        if (m_Bounds.Contains(point))
-            return NodeRegion::Header;
-        else
-            return NodeRegion::None;
-    }
-    else if (m_Type == NodeType::Group)
-    {
-        static const NodeRegion c_Regions[] =
-        {
-            // Corners first, they may overlap other regions.
-            NodeRegion::TopLeft,
-            NodeRegion::TopRight,
-            NodeRegion::BottomLeft,
-            NodeRegion::BottomRight,
-            NodeRegion::Header,
-            NodeRegion::Top,
-            NodeRegion::Bottom,
-            NodeRegion::Left,
-            NodeRegion::Right,
-            NodeRegion::Center
-        };
+        // Corners first, they may overlap other regions.
+        NodeRegion::TopLeft,
+        NodeRegion::TopRight,
+        NodeRegion::BottomLeft,
+        NodeRegion::BottomRight,
+        NodeRegion::Header,
+        NodeRegion::Top,
+        NodeRegion::Bottom,
+        NodeRegion::Left,
+        NodeRegion::Right,
+        NodeRegion::Center
+    };
 
-        for (auto region : c_Regions)
-        {
-            auto bounds = GetRegionBounds(region);
-            if (bounds.Contains(point))
-                return region;
-        }
+    for (auto region : c_Regions)
+    {
+        auto bounds = GetRegionBounds(region);
+        if (bounds.Contains(point))
+            return region;
     }
 
     return NodeRegion::None;
@@ -933,46 +932,67 @@ void ed::Link::Draw(ImDrawList* drawList, ImU32 color, float extraThickness) con
     if (!m_IsLive)
         return;
 
-    const auto curve = GetCurve();
+    const auto path = GetOrthogonalPath();
+    if (path.m_NumPoint < 2)
+        return;
 
-    for(int i = 0; i < curve.m_NumPoint; i += 4)
+    const float totalThickness = m_Thickness + extraThickness;
+
+    // 1 & 5. Draw straight orthogonal polyline segments with sharp corners
+    for (int i = 0; i < path.m_NumPoint - 1; ++i)
     {
-        const bool isStart = i == 0;
-        const bool isEnd = i == curve.m_NumPoint - 4;
+        drawList->AddLine(path.m_Points[i], path.m_Points[i + 1], color, totalThickness);
+    }
 
-        const auto startArrowSize = isStart && m_StartPin && m_StartPin->m_ArrowSize > 0.0f
-                ? m_StartPin->m_ArrowSize + extraThickness : 0.0f;
-        const auto startArrowWidth = isStart &&  m_StartPin && m_StartPin->m_ArrowWidth > 0.0f
-                ? m_StartPin->m_ArrowWidth + extraThickness : 0.0f;
+    // Arrowhead at destination pin
+    if (m_EndPin && m_EndPin->m_ArrowSize > 0.0f)
+    {
+        const auto pLast = path.m_Points[path.m_NumPoint - 1];
+        const auto pPrev = path.m_Points[path.m_NumPoint - 2];
+        const auto delta = pLast - pPrev;
+        const auto len   = ImSqrt(delta.x * delta.x + delta.y * delta.y);
+        const auto dir   = len > 0.001f ? ImVec2(delta.x / len, delta.y / len) : ImVec2(1.0f, 0.0f);
+        const auto norm  = ImVec2(-dir.y, dir.x);
 
-        const auto endArrowSize = isEnd && m_EndPin && m_EndPin->m_ArrowSize  > 0.0f
-                ? m_EndPin->m_ArrowSize  + extraThickness : 0.0f;
-        const auto endArrowWidth = isEnd && m_EndPin && m_EndPin->m_ArrowWidth > 0.0f
-                ? m_EndPin->m_ArrowWidth + extraThickness : 0.0f;
+        const float arrowSize  = m_EndPin->m_ArrowSize + extraThickness;
+        const float halfWidth  = (m_EndPin->m_ArrowWidth + extraThickness) * 0.5f;
 
-        // Direction snapping applies only where the path meets a pin, so the hints are gated
-        // on the first and last segment exactly as the arrowheads are. This feature postdates
-        // PR #119; without threading it through the loop, m_SnapLinkToDir would be silently
-        // dropped for every link the new layouting routes around a node.
-        const ImVec2* startDirHint = isStart && m_StartPin && m_StartPin->m_SnapLinkToDir
-                ? &m_StartPin->m_Dir : nullptr;
-        const ImVec2* endDirHint = isEnd && m_EndPin && m_EndPin->m_SnapLinkToDir
-                ? &m_EndPin->m_Dir : nullptr;
+        const auto tip = pLast;
+        const auto pA  = pLast - dir * arrowSize + norm * halfWidth;
+        const auto pB  = pLast - dir * arrowSize - norm * halfWidth;
 
-        const auto bezier = ImCubicBezierPoints { curve.m_Points[i], curve.m_Points[i + 1],
-                                                  curve.m_Points[i + 2], curve.m_Points[i + 3] };
-        ImDrawList_AddBezierWithArrows(drawList, bezier, m_Thickness + extraThickness, startArrowSize,
-                                       startArrowWidth, endArrowSize, endArrowWidth, true, color, 1.0f,
-                                       startDirHint, endDirHint);
+        drawList->AddTriangleFilled(tip, pA, pB, color);
+    }
 
-        if(!isEnd)
+    // 6. Branch junction dots:
+    // If this link branches or another link shares this start pin, draw junction dot
+    if (m_IsBranch)
+    {
+        drawList->AddCircleFilled(m_BranchOrigin, 4.0f + extraThickness * 0.5f, color);
+    }
+    else if (Editor && m_StartPin)
+    {
+        for (auto& otherObj : Editor->GetLinks())
         {
-            // Straight connector between two routed segments. It touches no pin, so it gets
-            // neither arrowheads nor direction hints.
-            const auto bezier1 = ImCubicBezierPoints { curve.m_Points[i + 3], curve.m_Points[i + 3],
-                                                       curve.m_Points[i + 4], curve.m_Points[i + 4] };
-            ImDrawList_AddBezierWithArrows(drawList, bezier1, m_Thickness + extraThickness,
-                                           0.0f,0.0f, 0.0f, 0.0f,true, color, 1.0f);
+            auto otherLink = otherObj.m_Object;
+            if (otherLink && otherLink != this && otherLink->m_IsLive && otherLink->m_StartPin == m_StartPin)
+            {
+                const auto otherPath = otherLink->GetOrthogonalPath();
+                if (otherPath.m_NumPoint >= 2 && path.m_NumPoint >= 2)
+                {
+                    ImVec2 jPt = path.m_Points[0];
+                    if (path.m_NumPoint >= 4 && otherPath.m_NumPoint >= 4)
+                    {
+                        if (ImFabs(path.m_Points[0].y - otherPath.m_Points[0].y) < 1.0f)
+                        {
+                            float minX = ImMin(path.m_Points[1].x, otherPath.m_Points[1].x);
+                            jPt = ImVec2(minX, path.m_Points[0].y);
+                        }
+                    }
+                    const float dotRadius = 4.0f + extraThickness * 0.5f;
+                    drawList->AddCircleFilled(jPt, dotRadius, color);
+                }
+            }
         }
     }
 }
@@ -986,173 +1006,357 @@ void ed::Link::UpdateEndpoints()
 
 ed::LinkPathType ed::Link::GetPathType(ImRect& fromRect, ImRect& toRect) const
 {
-    const bool isDefault = m_StartPin && m_StartPin->m_Dir != ImVec2(1.0f, 0.0f)
-            || m_EndPin && m_EndPin->m_Dir != ImVec2(-1.0f, 0.0f)
-            || !m_EndPin || !m_EndPin->m_Node
-            || !m_StartPin || !m_StartPin->m_Node;
+    if (m_StartPin && m_StartPin->m_Node) fromRect = m_StartPin->m_Node->m_Bounds;
+    if (m_EndPin && m_EndPin->m_Node)     toRect   = m_EndPin->m_Node->m_Bounds;
+    return LinkPathType_Default;
+}
 
-    if(isDefault)
-        return LinkPathType_Default;
+ed::LinkPath ed::Link::GetOrthogonalPath() const
+{
+    LinkPath result;
+    result.m_Type = LinkPathType_Default;
+    result.m_NumPoint = 0;
 
+    const auto startPos = m_Start;
+    const auto endPos   = m_End;
 
-    fromRect = m_StartPin->m_Node->m_Bounds;
-    toRect = m_EndPin->m_Node->m_Bounds;
+    const float stub = 16.0f;
 
-    if(m_End.x > fromRect.Max.x)
-        return ed::LinkPathType_Default;
-    else if(toRect.Min.y > fromRect.Max.y)
-        return ed::LinkPathType_Under_Over;
-    else if(toRect.Max.y < fromRect.Min.y)
-        return ed::LinkPathType_Over_Under;
+    // Determine start and end pin directions
+    ImVec2 startDir = (m_StartPin && (m_StartPin->m_Dir.x != 0.0f || m_StartPin->m_Dir.y != 0.0f))
+                          ? m_StartPin->m_Dir
+                          : ImVec2(1.0f, 0.0f);
+    bool startIsHoriz = ImFabs(startDir.x) >= ImFabs(startDir.y);
+    float startSign   = startIsHoriz ? (startDir.x >= 0.0f ? 1.0f : -1.0f) : (startDir.y >= 0.0f ? 1.0f : -1.0f);
 
-    return ed::LinkPathType_Under_Under;
+    ImVec2 endDir = (m_EndPin && (m_EndPin->m_Dir.x != 0.0f || m_EndPin->m_Dir.y != 0.0f))
+                        ? m_EndPin->m_Dir
+                        : ImVec2(-1.0f, 0.0f);
+    bool endIsHoriz = ImFabs(endDir.x) >= ImFabs(endDir.y);
+    float endSign   = endIsHoriz ? (endDir.x >= 0.0f ? 1.0f : -1.0f) : (endDir.y >= 0.0f ? 1.0f : -1.0f);
+
+    ImVec2 raw[16];
+    int rawCount = 0;
+
+    auto addPt = [&](const ImVec2& pt) {
+        if (rawCount < 16) {
+            raw[rawCount++] = pt;
+        }
+    };
+
+    addPt(startPos);
+
+    if (startIsHoriz && endIsHoriz)
+    {
+        // Both endpoints are horizontal (Standard block-to-block)
+        if (startPos.x + stub <= endPos.x - stub)
+        {
+            float splitX = m_HasCustomSplitX ? m_CustomSplitX : (startPos.x + endPos.x) * 0.5f;
+            addPt(ImVec2(splitX, startPos.y));
+            addPt(ImVec2(splitX, endPos.y));
+            addPt(endPos);
+        }
+        else
+        {
+            float xA = startPos.x + stub;
+            float xB = endPos.x - stub;
+
+            float defaultSplitY = (startPos.y + endPos.y) * 0.5f;
+            if (m_StartPin && m_StartPin->m_Node && m_EndPin && m_EndPin->m_Node)
+            {
+                const auto& fromRect = m_StartPin->m_Node->m_Bounds;
+                const auto& toRect   = m_EndPin->m_Node->m_Bounds;
+                if (endPos.y >= startPos.y)
+                {
+                    if (toRect.Min.y > fromRect.Max.y + 10.0f)
+                        defaultSplitY = (fromRect.Max.y + toRect.Min.y) * 0.5f;
+                    else
+                        defaultSplitY = ImMax(fromRect.Max.y, toRect.Max.y) + 24.0f;
+                }
+                else
+                {
+                    if (fromRect.Min.y > toRect.Max.y + 10.0f)
+                        defaultSplitY = (fromRect.Min.y + toRect.Max.y) * 0.5f;
+                    else
+                        defaultSplitY = ImMin(fromRect.Min.y, toRect.Min.y) - 24.0f;
+                }
+            }
+            else
+            {
+                defaultSplitY += (endPos.y >= startPos.y ? 32.0f : -32.0f);
+            }
+
+            float splitY = m_HasCustomSplitY ? m_CustomSplitY : defaultSplitY;
+
+            addPt(ImVec2(xA, startPos.y));
+            addPt(ImVec2(xA, splitY));
+            addPt(ImVec2(xB, splitY));
+            addPt(ImVec2(xB, endPos.y));
+            addPt(endPos);
+        }
+    }
+    else if (startIsHoriz && !endIsHoriz)
+    {
+        // Start is Horizontal, End is Vertical (e.g. into bottom/top of Sum block)
+        float entryY = endPos.y + endSign * stub;
+
+        if (startPos.x + stub <= endPos.x &&
+            ((endSign > 0 && startPos.y >= endPos.y) || (endSign < 0 && startPos.y <= endPos.y)))
+        {
+            // Direct L-turn into vertical pin
+            addPt(ImVec2(endPos.x, startPos.y));
+            addPt(endPos);
+        }
+        else
+        {
+            // Loopback / route around
+            float xA = startPos.x + startSign * stub;
+            float defaultSplitY = entryY;
+            if (m_StartPin && m_StartPin->m_Node && m_EndPin && m_EndPin->m_Node)
+            {
+                const auto& fromRect = m_StartPin->m_Node->m_Bounds;
+                const auto& toRect   = m_EndPin->m_Node->m_Bounds;
+                if (endSign > 0)
+                {
+                    defaultSplitY = ImMax(ImMax(fromRect.Max.y, toRect.Max.y) + 24.0f, entryY);
+                }
+                else
+                {
+                    defaultSplitY = ImMin(ImMin(fromRect.Min.y, toRect.Min.y) - 24.0f, entryY);
+                }
+            }
+            float splitY = m_HasCustomSplitY ? m_CustomSplitY : defaultSplitY;
+
+            addPt(ImVec2(xA, startPos.y));
+            addPt(ImVec2(xA, splitY));
+            addPt(ImVec2(endPos.x, splitY));
+            addPt(endPos);
+        }
+    }
+    else if (!startIsHoriz && endIsHoriz)
+    {
+        // Start is Vertical, End is Horizontal
+        float exitY = startPos.y + startSign * stub;
+        float splitX = m_HasCustomSplitX ? m_CustomSplitX : (startPos.x + endPos.x) * 0.5f;
+
+        addPt(ImVec2(startPos.x, exitY));
+        addPt(ImVec2(splitX, exitY));
+        addPt(ImVec2(splitX, endPos.y));
+        addPt(endPos);
+    }
+    else
+    {
+        // Both are Vertical
+        float exitY  = startPos.y + startSign * stub;
+        float entryY = endPos.y + endSign * stub;
+        float splitX = m_HasCustomSplitX ? m_CustomSplitX : (startPos.x + endPos.x) * 0.5f;
+
+        addPt(ImVec2(startPos.x, exitY));
+        addPt(ImVec2(splitX, exitY));
+        addPt(ImVec2(splitX, entryY));
+        addPt(ImVec2(endPos.x, entryY));
+        addPt(endPos);
+    }
+
+    // Simplification pass: deduplicate identical and remove collinear points
+    for (int i = 0; i < rawCount; ++i)
+    {
+        if (result.m_NumPoint == 0)
+        {
+            result.m_Points[result.m_NumPoint++] = raw[i];
+            continue;
+        }
+
+        const auto& prev = result.m_Points[result.m_NumPoint - 1];
+        if (ImFabs(raw[i].x - prev.x) < 0.2f && ImFabs(raw[i].y - prev.y) < 0.2f)
+            continue;
+
+        if (result.m_NumPoint >= 2)
+        {
+            const auto& prev2 = result.m_Points[result.m_NumPoint - 2];
+            bool collinHoriz = ImFabs(prev2.y - prev.y) < 0.2f && ImFabs(prev.y - raw[i].y) < 0.2f;
+            bool collinVert  = ImFabs(prev2.x - prev.x) < 0.2f && ImFabs(prev.x - raw[i].x) < 0.2f;
+            if (collinHoriz || collinVert)
+            {
+                result.m_Points[result.m_NumPoint - 1] = raw[i];
+                continue;
+            }
+        }
+
+        result.m_Points[result.m_NumPoint++] = raw[i];
+    }
+
+    return result;
 }
 
 ed::LinkPath ed::Link::GetCurve() const
 {
-    ImRect fromRect, toRect;
-    const auto pathType = GetPathType(fromRect, toRect);
+    return GetOrthogonalPath();
+}
 
-    LinkPath result;
-    result.m_Type = pathType;
-    result.m_NumPoint = 0;
+int ed::Link::FindSegmentAt(const ImVec2& point, float threshold, bool* outIsHorizontal, float* outDist) const
+{
+    const auto path = GetOrthogonalPath();
+    if (path.m_NumPoint < 2)
+        return -1;
 
-    if(pathType == ed::LinkPathType_Default)
+    int bestSegment = -1;
+    float bestDist2 = threshold * threshold;
+    bool bestIsHoriz = false;
+
+    for (int i = 0; i < path.m_NumPoint - 1; ++i)
     {
-        auto easeLinkStrength = [](const ImVec2& a, const ImVec2& b, float strength)
+        const auto& p0 = path.m_Points[i];
+        const auto& p1 = path.m_Points[i + 1];
+
+        const bool isHoriz = ImFabs(p1.x - p0.x) >= ImFabs(p1.y - p0.y);
+        float dist2 = FLT_MAX;
+
+        if (isHoriz)
         {
-            const auto distanceX    = b.x - a.x;
-            const auto distanceY    = b.y - a.y;
-            const auto distance     = ImSqrt(distanceX * distanceX + distanceY * distanceY);
-            const auto halfDistance = distance * 0.5f;
+            float xMin = ImMin(p0.x, p1.x);
+            float xMax = ImMax(p0.x, p1.x);
+            float cx = ImClamp(point.x, xMin, xMax);
+            float dx = point.x - cx;
+            float dy = point.y - p0.y;
+            dist2 = dx * dx + dy * dy;
+        }
+        else
+        {
+            float yMin = ImMin(p0.y, p1.y);
+            float yMax = ImMax(p0.y, p1.y);
+            float cy = ImClamp(point.y, yMin, yMax);
+            float dx = point.x - p0.x;
+            float dy = point.y - cy;
+            dist2 = dx * dx + dy * dy;
+        }
 
-            if (halfDistance < strength)
-                strength = strength * ImSin(IM_PI * 0.5f * halfDistance / strength);
-
-            return strength;
-        };
-
-        const auto startStrength = easeLinkStrength(m_Start, m_End, m_StartPin->m_Strength);
-        const auto   endStrength = easeLinkStrength(m_Start, m_End,   m_EndPin->m_Strength);
-        const auto           cp0 = m_Start + m_StartPin->m_Dir * startStrength;
-        const auto           cp1 =   m_End +   m_EndPin->m_Dir *   endStrength;
-
-        result.m_NumPoint = 4;
-        result.m_Points[0] = m_Start;
-        result.m_Points[1] = cp0;
-        result.m_Points[2] = cp1;
-        result.m_Points[3] = m_End;
-        return result;
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            bestSegment = i;
+            bestIsHoriz = isHoriz;
+        }
     }
 
-    int startNodeOutPinCount = 0;
-    int startPinIndex = 0; // that's actually an inversed index but that doesn't really matter
-
-    Pin* pin = m_StartPin && m_StartPin->m_Node ? m_StartPin->m_Node->m_LastPin : nullptr;
-    while (pin)
+    if (bestSegment >= 0)
     {
-        if(pin == m_StartPin)
-            startPinIndex = startNodeOutPinCount;
-        if(pin && pin->m_Kind == PinKind::Output)
-            startNodeOutPinCount++;
-        pin = pin->m_PreviousPin;
+        if (outIsHorizontal) *outIsHorizontal = bestIsHoriz;
+        if (outDist) *outDist = ImSqrt(bestDist2);
+        return bestSegment;
     }
 
-    const float rounding = 5.0f;
-    const float margin = 10.0f;
-    const float xsepf = 7.0f;
-    const float ysepf = 7.0f;
-    const float xsep = float(startPinIndex) * xsepf + 2.0f;
-    const float ysep = float(startPinIndex) * ysepf - (float(startNodeOutPinCount - 1)) * ysepf / 2.0f;
+    return -1;
+}
 
-    if(pathType == ed::LinkPathType_Under_Over)
+ImVec2 ed::Link::GetClosestPointOnPath(const ImVec2& point) const
+{
+    const auto path = GetOrthogonalPath();
+    if (path.m_NumPoint < 2)
+        return m_Start;
+
+    float bestDist2 = FLT_MAX;
+    ImVec2 bestPoint = path.m_Points[0];
+
+    for (int i = 0; i < path.m_NumPoint - 1; ++i)
     {
-        // top right rounded corner
-        result.m_Points[result.m_NumPoint++] = m_Start;
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(rounding, 0.0f);
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(margin + xsep, margin - rounding);
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(margin + xsep, margin);
+        const auto& p0 = path.m_Points[i];
+        const auto& p1 = path.m_Points[i + 1];
 
-        // bottom right rounded corner
-        const float middle = (fromRect.Max.y + toRect.Min.y) / 2.0f;
-        const float xmax = ImMax(m_Start.x, m_End.x);
-        const float xmin = ImMin(m_Start.x, m_End.x);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + margin + xsep, middle - margin + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + margin + xsep, middle - margin + rounding + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + rounding + xsep, middle + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(xmax, middle + ysep);
+        const bool isHoriz = ImFabs(p1.x - p0.x) >= ImFabs(p1.y - p0.y);
+        ImVec2 proj;
+        if (isHoriz)
+        {
+            float xMin = ImMin(p0.x, p1.x);
+            float xMax = ImMax(p0.x, p1.x);
+            proj.x = ImClamp(point.x, xMin, xMax);
+            proj.y = p0.y;
+        }
+        else
+        {
+            float yMin = ImMin(p0.y, p1.y);
+            float yMax = ImMax(p0.y, p1.y);
+            proj.x = p0.x;
+            proj.y = ImClamp(point.y, yMin, yMax);
+        }
 
-        // bottom left rounded corner
-        result.m_Points[result.m_NumPoint++] = ImVec2(xmin - xsep, middle + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - xsep - rounding, middle + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - xsep - margin, middle + margin - rounding + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - xsep - margin, middle + margin + ysep);
-
-        // top left rounded corner
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(- xsep - margin, -margin);
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(- xsep - margin, -margin + rounding);
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(- xsep - rounding, 0.0f);
-        result.m_Points[result.m_NumPoint++] = m_End;
+        float dx = point.x - proj.x;
+        float dy = point.y - proj.y;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            bestPoint = proj;
+        }
     }
-    else if(pathType == ed::LinkPathType_Over_Under)
+
+    return bestPoint;
+}
+
+bool ed::Link::AcceptDrag()
+{
+    auto& io = ImGui::GetIO();
+    if (io.KeyCtrl)
+        return false; // Ctrl is reserved for branching
+
+    const auto mousePos = ImGui_GetMouseClickPos(Editor->GetConfig().DragButtonIndex);
+    bool isHoriz = false;
+    float dist = 0.0f;
+    int seg = FindSegmentAt(mousePos, m_Thickness + 8.0f, &isHoriz, &dist);
+    if (seg < 0)
+        return false;
+
+    m_DraggedSegmentIndex = seg;
+
+    const auto path = GetOrthogonalPath();
+    if (path.m_NumPoint == 4)
     {
-        // top right rounded corner
-        result.m_Points[result.m_NumPoint++] = m_Start;
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(rounding, 0.0f);
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(margin + xsep, - margin + rounding);
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(margin + xsep, - margin);
-
-        // bottom right rounded corner
-        const float middle = (fromRect.Min.y + toRect.Max.y) / 2.0f;
-        const float xmax = ImMax(m_Start.x, m_End.x);
-        const float xmin = ImMin(m_Start.x, m_End.x);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + margin + xsep, middle + ysep + margin);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + margin + xsep, middle + ysep + margin - rounding);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + rounding, middle + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(xmax, middle + ysep);
-
-        // bottom left rounded corner
-        result.m_Points[result.m_NumPoint++] = ImVec2(xmin, middle + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - rounding, middle + ysep);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - margin - xsep, middle + ysep - margin + rounding);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - margin - xsep, middle + ysep - margin);
-
-        // top left rounded corner
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(-margin - xsep, margin);
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(-margin - xsep, margin - rounding);
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(-rounding, 0.0f);
-        result.m_Points[result.m_NumPoint++] = m_End;
+        m_DragStartSplitX = m_HasCustomSplitX ? m_CustomSplitX : (m_Start.x + m_End.x) * 0.5f;
+        m_DragStartSplitY = m_HasCustomSplitY ? m_CustomSplitY : (m_Start.y + m_End.y) * 0.5f;
     }
-    else if(pathType == ed::LinkPathType_Under_Under)
+    else if (path.m_NumPoint == 6)
     {
-        // top right rounded corner
-        result.m_Points[result.m_NumPoint++] = m_Start;
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(rounding, 0.0f);
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(margin + xsep, margin - rounding);
-        result.m_Points[result.m_NumPoint++] = m_Start + ImVec2(margin + xsep, margin);
-
-        // bottom right rounded corner
-        const float bottom = ImMax(fromRect.Max.y, toRect.Max.y) + margin + xsep;
-        const float xmax = ImMax(m_Start.x, m_End.x);
-        const float xmin = ImMin(m_Start.x, m_End.x);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + margin + xsep, bottom - margin);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + margin + xsep, bottom - margin + rounding);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_Start.x + rounding, bottom);
-        result.m_Points[result.m_NumPoint++] = ImVec2(xmax, bottom);
-
-        // bottom left rounded corner
-        result.m_Points[result.m_NumPoint++] = ImVec2(xmin, bottom);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - rounding, bottom);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - margin - xsep, bottom - margin + rounding);
-        result.m_Points[result.m_NumPoint++] = ImVec2(m_End.x - margin - xsep, bottom - margin);
-
-        // top left rounded corner
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(-margin - xsep, margin);
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(-margin - xsep, margin - rounding);
-        result.m_Points[result.m_NumPoint++] = m_End + ImVec2(-rounding, 0.0f);
-        result.m_Points[result.m_NumPoint++] = m_End;
+        m_DragStartSplitX = m_HasCustomSplitX ? m_CustomSplitX : m_Start.x + 16.0f;
+        m_DragStartSplitY = m_HasCustomSplitY ? m_CustomSplitY : path.m_Points[2].y;
     }
-    return result;
+
+    return true;
+}
+
+void ed::Link::UpdateDrag(const ImVec2& offset)
+{
+    if (m_DraggedSegmentIndex < 0)
+        return;
+
+    const auto path = GetOrthogonalPath();
+    if (m_DraggedSegmentIndex >= path.m_NumPoint - 1)
+        return;
+
+    const auto& p0 = path.m_Points[m_DraggedSegmentIndex];
+    const auto& p1 = path.m_Points[m_DraggedSegmentIndex + 1];
+    const bool isHoriz = ImFabs(p1.x - p0.x) >= ImFabs(p1.y - p0.y);
+
+    if (isHoriz)
+    {
+        m_CustomSplitY = m_DragStartSplitY + offset.y;
+        m_HasCustomSplitY = true;
+    }
+    else
+    {
+        m_CustomSplitX = m_DragStartSplitX + offset.x;
+        m_HasCustomSplitX = true;
+    }
+}
+
+bool ed::Link::EndDrag()
+{
+    m_DraggedSegmentIndex = -1;
+    return true;
+}
+
+ImVec2 ed::Link::DragStartLocation()
+{
+    return m_Start;
 }
 
 bool ed::Link::TestHit(const ImVec2& point, float extraThickness) const
@@ -1167,32 +1371,9 @@ bool ed::Link::TestHit(const ImVec2& point, float extraThickness) const
     if (!bounds.Contains(point))
         return false;
 
-    const auto threshold = m_Thickness + extraThickness;
-
-    auto calcDistance = [point](ImVec2 p0, ImVec2 p1, ImVec2 p2, ImVec2 p3) -> float
-    {
-        return ImProjectOnCubicBezier(point, p0, p1, p2, p3, 50).Distance;
-    };
-
-    const auto curve = GetCurve();
-    auto distance = FLT_MAX;
-
-    for(int i = 0; i < curve.m_NumPoint; i += 4)
-    {
-        distance = ImMin(distance, calcDistance(curve.m_Points[i], curve.m_Points[i + 1],
-                                                curve.m_Points[i + 2], curve.m_Points[i + 3]));
-        if(distance <= threshold)
-            return true;
-
-        if(i != curve.m_NumPoint - 4)
-            distance = ImMin(distance, calcDistance(curve.m_Points[i + 3], curve.m_Points[i + 3],
-                                                    curve.m_Points[i + 4], curve.m_Points[i + 4]));
-
-        if(distance <= threshold)
-            return true;
-    }
-
-    return false;
+    float threshold = m_Thickness + extraThickness + 3.5f;
+    float dist = 0.0f;
+    return FindSegmentAt(point, threshold, nullptr, &dist) >= 0;
 }
 
 bool ed::Link::TestHit(const ImRect& rect, bool allowIntersect) const
@@ -1201,57 +1382,24 @@ bool ed::Link::TestHit(const ImRect& rect, bool allowIntersect) const
         return false;
 
     const auto bounds = GetBounds();
-
     if (rect.Contains(bounds))
         return true;
 
     if (!allowIntersect || !rect.Overlaps(bounds))
         return false;
 
-    const auto curve = GetCurve();
-
-    const auto p0 = rect.GetTL();
-    const auto p1 = rect.GetTR();
-    const auto p2 = rect.GetBR();
-    const auto p3 = rect.GetBL();
-
-    for(int i = 0; i < curve.m_NumPoint; i += 4)
+    const auto path = GetOrthogonalPath();
+    for (int i = 0; i < path.m_NumPoint - 1; ++i)
     {
-        const auto c0 = curve.m_Points[i];
-        const auto c1 = curve.m_Points[i + 1];
-        const auto c2 = curve.m_Points[i + 2];
-        const auto c3 = curve.m_Points[i + 3];
+        const auto& p0 = path.m_Points[i];
+        const auto& p1 = path.m_Points[i + 1];
 
-        // test corner lines
-        if (ImCubicBezierLineIntersect(c0, c1, c2, c3, p0, p1).Count > 0)
+        ImRect segBounds(ImMin(p0, p1), ImMax(p0, p1));
+        if (segBounds.GetWidth() <= 0.0f) segBounds.Max.x += 1.0f;
+        if (segBounds.GetHeight() <= 0.0f) segBounds.Max.y += 1.0f;
+
+        if (rect.Overlaps(segBounds))
             return true;
-
-        if (ImCubicBezierLineIntersect(c0, c1, c2, c3, p1, p2).Count > 0)
-            return true;
-
-        if (ImCubicBezierLineIntersect(c0, c1, c2, c3, p2, p3).Count > 0)
-            return true;
-
-        if (ImCubicBezierLineIntersect(c0, c1, c2, c3, p3, p0).Count > 0)
-            return true;
-
-        if(i != curve.m_NumPoint - 4) {
-            const auto l0 = curve.m_Points[i + 3];
-            const auto l1 = curve.m_Points[i + 4];
-
-            // test direct lines
-            if (ImCubicBezierLineIntersect(l0, l0, l1, l1, p0, p1).Count > 0)
-                return true;
-
-            if (ImCubicBezierLineIntersect(l0, l0, l1, l1, p1, p2).Count > 0)
-                return true;
-
-            if (ImCubicBezierLineIntersect(l0, l0, l1, l1, p2, p3).Count > 0)
-                return true;
-
-            if (ImCubicBezierLineIntersect(l0, l0, l1, l1, p3, p0).Count > 0)
-                return true;
-        }
     }
 
     return false;
@@ -1259,61 +1407,29 @@ bool ed::Link::TestHit(const ImRect& rect, bool allowIntersect) const
 
 ImRect ed::Link::GetBounds() const
 {
-    if (m_IsLive)
+    if (!m_IsLive)
+        return ImRect(0, 0, 0, 0);
+
+    const auto path = GetOrthogonalPath();
+    if (path.m_NumPoint == 0)
+        return ImRect(m_Start, m_End);
+
+    ImVec2 minPt = path.m_Points[0];
+    ImVec2 maxPt = path.m_Points[0];
+
+    for (int i = 1; i < path.m_NumPoint; ++i)
     {
-        const auto curve = GetCurve();
-        auto bounds = ImCubicBezierBoundingRect(curve.m_Points[0], curve.m_Points[1],
-                                                curve.m_Points[2], curve.m_Points[3]);
-
-        for(int i = 4; i < curve.m_NumPoint; i += 4)
-        {
-            // for bounds calculation we can check only corner segments and ignore direct segments,
-            // since they are always in bounds of corner segments
-
-            const auto segmentBounds = ImCubicBezierBoundingRect(curve.m_Points[i], curve.m_Points[i + 1],
-                                                                 curve.m_Points[i + 2], curve.m_Points[i + 3]);
-            bounds.Min = ImMin(bounds.Min, segmentBounds.Min);
-            bounds.Max = ImMax(bounds.Max, segmentBounds.Max);
-        }
-
-        if (bounds.GetWidth() == 0.0f)
-        {
-            bounds.Min.x -= 0.5f;
-            bounds.Max.x += 0.5f;
-        }
-
-        if (bounds.GetHeight() == 0.0f)
-        {
-            bounds.Min.y -= 0.5f;
-            bounds.Max.y += 0.5f;
-        }
-
-        if (m_StartPin->m_ArrowSize)
-        {
-            const auto start_dir = ImNormalized(ImCubicBezierTangent(curve.m_Points[0], curve.m_Points[1], curve.m_Points[2], curve.m_Points[3], 0.0f));
-            const auto p0 = curve.m_Points[0];
-            const auto p1 = curve.m_Points[0] - start_dir * m_StartPin->m_ArrowSize;
-            const auto min = ImMin(p0, p1);
-            const auto max = ImMax(p0, p1);
-            auto arrowBounds = ImRect(min, ImMax(max, min + ImVec2(1, 1)));
-            bounds.Add(arrowBounds);
-        }
-
-        if (m_EndPin->m_ArrowSize)
-        {
-            const auto end_dir = ImNormalized(ImCubicBezierTangent(curve.m_Points[0], curve.m_Points[1], curve.m_Points[2], curve.m_Points[3], 1.0f));
-            const auto p0 = curve.m_Points[curve.m_NumPoint - 1];
-            const auto p1 = curve.m_Points[curve.m_NumPoint - 1] + end_dir * m_EndPin->m_ArrowSize;
-            const auto min = ImMin(p0, p1);
-            const auto max = ImMax(p0, p1);
-            auto arrowBounds = ImRect(min, ImMax(max, min + ImVec2(1, 1)));
-            bounds.Add(arrowBounds);
-        }
-
-        return bounds;
+        minPt = ImMin(minPt, path.m_Points[i]);
+        maxPt = ImMax(maxPt, path.m_Points[i]);
     }
-    else
-        return ImRect();
+
+    const float margin = m_Thickness * 0.5f + 4.0f;
+    minPt.x -= margin;
+    minPt.y -= margin;
+    maxPt.x += margin;
+    maxPt.y += margin;
+
+    return ImRect(minPt, maxPt);
 }
 
 
@@ -1638,6 +1754,24 @@ void ed::EditorContext::End()
 
     if (m_CurrentAction)
         ImGui::SetMouseCursor(m_CurrentAction->GetCursor());
+    else if (control.HotLink)
+    {
+        auto& io = ImGui::GetIO();
+        if (io.KeyCtrl)
+        {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        }
+        else
+        {
+            bool isHoriz = false;
+            float dist = 0.0f;
+            int seg = control.HotLink->FindSegmentAt(ImGui::GetMousePos(), control.HotLink->m_Thickness + 8.0f, &isHoriz, &dist);
+            if (seg >= 0)
+            {
+                ImGui::SetMouseCursor(isHoriz ? ImGuiMouseCursor_ResizeNS : ImGuiMouseCursor_ResizeEW);
+            }
+        }
+    }
 
     // Draw selection rectangle
     m_SelectAction.Draw(m_DrawList);
@@ -4000,18 +4134,15 @@ ed::EditorAction::AcceptResult ed::SizeAction::Accept(const Control& control)
     if (m_IsActive)
         return False;
 
-    if (control.ActiveNode && IsGroup(control.ActiveNode) && ImGui::IsMouseDragging(Editor->GetConfig().DragButtonIndex, 1))
+    if (control.ActiveNode && ImGui::IsMouseDragging(Editor->GetConfig().DragButtonIndex, 1))
     {
-        //const auto mousePos     = to_point(ImGui::GetMousePos());
-        //const auto closestPoint = control.ActiveNode->Bounds.get_closest_point_hollow(mousePos, static_cast<int>(control.ActiveNode->Rounding));
-
         auto pivot = GetRegion(control.ActiveNode);
-        if (pivot != NodeRegion::Header && pivot != NodeRegion::Center)
+        if (pivot != NodeRegion::Header && pivot != NodeRegion::Center && pivot != NodeRegion::None)
         {
             m_StartBounds      = control.ActiveNode->m_Bounds;
             m_StartGroupBounds = control.ActiveNode->m_GroupBounds;
             m_LastSize         = control.ActiveNode->m_Bounds.GetSize();
-            m_MinimumSize      = ImVec2(0, 0);
+            m_MinimumSize      = ImVec2(40.0f, 30.0f);
             m_LastDragOffset   = ImVec2(0, 0);
             m_Pivot            = pivot;
             m_Cursor           = ChooseCursor(m_Pivot);
@@ -4019,10 +4150,14 @@ ed::EditorAction::AcceptResult ed::SizeAction::Accept(const Control& control)
             m_IsActive         = true;
         }
     }
-    else if (control.HotNode && IsGroup(control.HotNode))
+    else if (control.HotNode)
     {
-        m_Cursor = ChooseCursor(GetRegion(control.HotNode));
-        return Possible;
+        auto pivot = GetRegion(control.HotNode);
+        if (pivot != NodeRegion::Header && pivot != NodeRegion::Center && pivot != NodeRegion::None)
+        {
+            m_Cursor = ChooseCursor(pivot);
+            return Possible;
+        }
     }
 
     return m_IsActive ? True : False;
@@ -4206,6 +4341,19 @@ ed::EditorAction::AcceptResult ed::DragAction::Accept(const Control& control)
             for (auto candidate : groupedNodes)
                 if (!isAlreadyPicked(candidate) && candidate->AcceptDrag())
                     m_Objects.push_back(candidate);
+        }
+
+        if (auto link = m_DraggedObject->AsLink())
+        {
+            bool isHoriz = false;
+            float dist = 0.0f;
+            const auto mousePos = ImGui_GetMouseClickPos(Editor->GetConfig().DragButtonIndex);
+            int seg = link->FindSegmentAt(mousePos, link->m_Thickness + 8.0f, &isHoriz, &dist);
+            m_Cursor = isHoriz ? ImGuiMouseCursor_ResizeNS : ImGuiMouseCursor_ResizeEW;
+        }
+        else
+        {
+            m_Cursor = ImGuiMouseCursor_ResizeAll;
         }
 
         m_IsActive = true;
@@ -4879,14 +5027,29 @@ ed::EditorAction::AcceptResult ed::CreateItemAction::Accept(const Control& contr
     if (m_IsActive)
         return EditorAction::False;
 
+    auto& io = ImGui::GetIO();
     if (control.ActivePin && ImGui::IsMouseDragging(Editor->GetConfig().DragButtonIndex, 1))
     {
-        m_DraggedPin = control.ActivePin;
+        m_DraggedPin  = control.ActivePin;
+        m_IsBranching = false;
         DragStart(m_DraggedPin);
 
         Editor->ClearSelection();
     }
+    else if (io.KeyCtrl && control.ActiveLink && control.ActiveLink->m_StartPin && ImGui::IsMouseDragging(Editor->GetConfig().DragButtonIndex, 1))
+    {
+        m_DraggedPin   = control.ActiveLink->m_StartPin;
+        m_IsBranching  = true;
+        m_BranchOrigin = control.ActiveLink->GetClosestPointOnPath(ImGui_GetMouseClickPos(Editor->GetConfig().DragButtonIndex));
+        DragStartBranch(m_DraggedPin, m_BranchOrigin);
+
+        Editor->ClearSelection();
+    }
     else if (control.HotPin)
+    {
+        return EditorAction::Possible;
+    }
+    else if (io.KeyCtrl && control.HotLink)
     {
         return EditorAction::Possible;
     }
@@ -4905,7 +5068,7 @@ bool ed::CreateItemAction::Process(const Control& control)
     if (!m_IsActive)
         return false;
 
-    if (m_DraggedPin && control.ActivePin == m_DraggedPin && (m_CurrentStage == Possible))
+    if (m_DraggedPin && (control.ActivePin == m_DraggedPin || (m_IsBranching && control.ActiveLink)) && (m_CurrentStage == Possible))
     {
         const auto draggingFromSource = (m_DraggedPin->m_Kind == PinKind::Output);
 
@@ -4914,9 +5077,16 @@ bool ed::CreateItemAction::Process(const Control& control)
         cursorPin.m_Dir      = -m_DraggedPin->m_Dir;
         cursorPin.m_Strength =  m_DraggedPin->m_Strength;
 
+        ed::Pin branchStartPin(Editor, 0, PinKind::Output);
+        if (m_IsBranching)
+        {
+            branchStartPin.m_Pivot = ImRect(m_BranchOrigin, m_BranchOrigin);
+            branchStartPin.m_Dir   = ImVec2(1.0f, 0.0f);
+        }
+
         ed::Link candidate(Editor, 0);
         candidate.m_Color    = m_LinkColor;
-        candidate.m_StartPin = draggingFromSource ? m_DraggedPin : &cursorPin;
+        candidate.m_StartPin = m_IsBranching ? &branchStartPin : (draggingFromSource ? m_DraggedPin : &cursorPin);
         candidate.m_EndPin   = draggingFromSource ? &cursorPin : m_DraggedPin;
 
         ed::Pin*& freePin  = draggingFromSource ? candidate.m_EndPin : candidate.m_StartPin;
@@ -4937,6 +5107,11 @@ bool ed::CreateItemAction::Process(const Control& control)
         drawList->ChannelsSetCurrent(c_LinkChannel_NewLink);
 
         candidate.UpdateEndpoints();
+        if (m_IsBranching)
+        {
+            candidate.m_Start = m_BranchOrigin;
+            drawList->AddCircleFilled(m_BranchOrigin, 4.0f, m_LinkColor);
+        }
         candidate.Draw(drawList, m_LinkColor, m_LinkThickness);
     }
     else if (m_CurrentStage == Possible || !control.ActivePin)
@@ -5044,9 +5219,21 @@ void ed::CreateItemAction::DragStart(Pin* startPin)
 {
     IM_ASSERT(!m_InActive);
 
-    m_NextStage = Possible;
-    m_LinkStart = startPin;
-    m_LinkEnd   = nullptr;
+    m_NextStage   = Possible;
+    m_LinkStart   = startPin;
+    m_LinkEnd     = nullptr;
+    m_IsBranching = false;
+}
+
+void ed::CreateItemAction::DragStartBranch(Pin* startPin, const ImVec2& branchOrigin)
+{
+    IM_ASSERT(!m_InActive);
+
+    m_NextStage    = Possible;
+    m_LinkStart    = startPin;
+    m_LinkEnd      = nullptr;
+    m_IsBranching  = true;
+    m_BranchOrigin = branchOrigin;
 }
 
 void ed::CreateItemAction::DragEnd()
@@ -5064,6 +5251,8 @@ void ed::CreateItemAction::DragEnd()
         m_LinkStart = nullptr;
         m_LinkEnd   = nullptr;
     }
+
+    m_IsBranching = false;
 }
 
 void ed::CreateItemAction::DropPin(Pin* endPin)
